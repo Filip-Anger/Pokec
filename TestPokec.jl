@@ -30,6 +30,13 @@ A = sparse(to, from, vals, n, n)
 
 println("Matrix A:")
 println(display(A))  # show as dense for small matrix
-println("\nColumn sums:")
-println(sum(A, dims=1))
+colSums = sum(A, dims=1)
 
+println("\nColumn sums:")
+println(colSums)
+
+# Make the matrix sparse but column sochastic
+
+A = A / colSums
+println("Matrix A:")
+println(display(A))
