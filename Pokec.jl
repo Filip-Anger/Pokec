@@ -15,13 +15,13 @@ edges = 30622564
 end
 
 # Second pass: build matrix with normalized values
-rows = Int[]
+rows = Int[]  
 cols = Int[]
 vals = Float32[]
 sizehint!(rows, edges)
 sizehint!(cols, edges)
 sizehint!(vals, edges)
-z = 0
+
 @time begin
     open("datasets/soc-pokec-relationships.txt", "r") do io
         for line in eachline(io)
@@ -30,8 +30,6 @@ z = 0
             push!(cols, from)    # source is column
             if outdegree[from] != 0
                 push!(vals, 1.0f0 / outdegree[from])  # Normalized!
-            else
-                push!(vals, 1.0f0 / nodes)  
             end
         end
     end
@@ -42,42 +40,45 @@ end
 @time begin
     A = sparse(rows, cols, vals, nodes, nodes)
 end
-println(sum(A))
+damping_factor = 0.85
+sink = Float64.(outdegree .== 0) 
+function do_rank(epsilon)
+    x = ones(nodes) / nodes
+    last_x = ones(nodes)
+    iterations = 0
+    while (norm((last_x - x), 1) > epsilon)
+        # xwalk = G * xwalk
+        # Not sparse -> matrix * vector O(n) = (2n - 1) * n = 2n^2 = n^2
+        last_x = x
 
-# function pagerank_step!(x_new, A, x, outdeg, p)
-#     n = length(x)
-#     fill!(x_new, 0.0f0)
+        # Since (A + Z)x = Ax + Zx
+        x = ((A * x) + sink .* x) * damping_factor + ones(nodes, 1) * ((1-damping_factor) / nodes)
+                # (ones(n,n) * xwalk) * ((1-damping_factor) / n)
+                
+        # matrix * vector, vector * scalar, vector + vector
+        # A is sparse: say average degree is 10 -> A * x O(n) = 10n, vector * scalar O(n) = n
+        # Vector addition O(n) = n
+        # Ones are not sparse but ones(n, n) * xwalk gives vector of ones since xwalk is column sochastic
+        # O(n) = kn, k based on how sparse A is
+        # with 10000x10000 it was 50 times faster already
+        iterations += 1
+    end
+    println("Sum is: ")
+    println(sum(x))
+    println("Iterations: ")
+    println(iterations)
+    return x
+end
 
-#     sink_mass = 0.0f0
+# 10 walks seem to be enought
+@time begin
+    final_x = do_rank(10^(-6))
+end
 
-#     @inbounds for j in 1:n
-#         if outdeg[j] == 0
-#             sink_mass += x[j]
-#         else
-#             contrib = p * x[j] / outdeg[j]
-#             for ptr in A.colptr[j]:(A.colptr[j+1]-1)
-#                 i = A.rowval[ptr]
-#                 x_new[i] += contrib
-#             end
-#         end
-#     end
-
-#     # distribute sink mass + teleportation
-#     x_new .+= (p * sink_mass + (1 - p)) / n
-# end
-
-# p = 0.85f0
-# tol = 1e-6
-# maxiter = 100
-
-# for iter in 1:maxiter
-#     pagerank_step!(x_new, A, x, outdeg, p)
-
-#     if norm(x_new - x, 1) < tol
-#         println("Converged in ", iter, " iterations")
-#         break
-#     end
-#     tmp = x
-#     x = x_new
-#     x_new = tmp
-# end
+@time begin
+        open("datasets/eigenvector.txt", "w") do io
+        for v in final_x
+            println(io, v)
+        end
+    end
+end

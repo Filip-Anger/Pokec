@@ -6,3 +6,6 @@ n = 2
 display(ones(2,1) * (1/2))
 A[:,2] = ones(n, 1) * (1/n)
 display(A)
+
+
+zeros(5,1)
