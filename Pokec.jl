@@ -4,23 +4,35 @@ using LinearAlgebra
 nodes = 1632803
 edges = 30622564
 
+@time begin
+    outdegree = zeros(Int, nodes)
+    open("datasets/soc-pokec-relationships.txt", "r") do io
+        for line in eachline(io)
+            from, to = parse.(Int, split(line))
+            outdegree[from] += 1
+        end
+    end
+end
+
+# Second pass: build matrix with normalized values
 rows = Int[]
 cols = Int[]
 vals = Float32[]
-
 sizehint!(rows, edges)
 sizehint!(cols, edges)
 sizehint!(vals, edges)
-
-# Load into arrays
-# 200M allocations: 8 Gib, 9 seconds
+z = 0
 @time begin
-    open("soc-pokec-relationships.txt", "r") do io
+    open("datasets/soc-pokec-relationships.txt", "r") do io
         for line in eachline(io)
-            from,to = parse.(Int, split(line))
-            push!(rows, from)
-            push!(cols, to)
-            push!(vals, 1.0f0)
+            from, to = parse.(Int, split(line))
+            push!(rows, to)      # destination is row
+            push!(cols, from)    # source is column
+            if outdegree[from] != 0
+                push!(vals, 1.0f0 / outdegree[from])  # Normalized!
+            else
+                push!(vals, 1.0f0 / nodes)  
+            end
         end
     end
 end
@@ -28,20 +40,9 @@ end
 # Make sparse array
 # 700k allocations, 800 Mib, 2 seconds
 @time begin
-    n = max(maximum(rows), maximum(cols))
-
-    A = sparse(rows, cols, vals, n, n)
+    A = sparse(rows, cols, vals, nodes, nodes)
 end
-
-display(A[1:10, 1:10])
-
-outdeg = sum(A, dims=1)
-outdeg = vec(outdeg)
-
-n = size(A, 1)
-x = fill(1.0f0 / n, n)
-x_new = similar(x)
-
+println(sum(A))
 
 # function pagerank_step!(x_new, A, x, outdeg, p)
 #     n = length(x)

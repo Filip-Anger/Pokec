@@ -33,8 +33,8 @@ using SparseArrays
 # n = max(maximum(from), maximum(to))
 # A = sparse(to, from, vals, n, n)
 
-function setUp(n)
-    num_edges = 34 * 10^6
+function setup(n)
+    num_edges = 2 * n
     rows = rand(1:n, num_edges)
     cols = rand(1:n, num_edges)
     vals = ones(num_edges)  # All 1s
@@ -42,8 +42,10 @@ function setUp(n)
     return A
 end
 
-n = 10^5
-A = setup(n)
+n = 5
+@time begin
+    A = setup(n)  
+end
 # print(ones(1,n) * (A * ones(n, 1)))
 # sparse (rows, cols, what is there when they have edge, size)
 
